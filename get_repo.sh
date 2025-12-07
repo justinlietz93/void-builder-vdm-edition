@@ -29,7 +29,9 @@ mkdir -p vscode
 cd vscode || { echo "'vscode' dir not found"; exit 1; }
 
 git init -q
-git remote add origin https://github.com/voideditor/void.git
+# Point the builder at your fork of the editor instead of the official Void repo.
+# This makes the builder clone and build your "Void VDM Edition" source.
+git remote add origin https://github.com/justinlietz93/void_vdm-edition.git
 
 # Allow callers to specify a particular commit to checkout via the
 # environment variable VOID_COMMIT.  We still default to the tip of the
@@ -46,14 +48,14 @@ else
   git checkout FETCH_HEAD
 fi
 
-MS_TAG=$( jq -r '.version' "package.json" )
+MS_TAG=$( node -e "console.log(require('./package.json').version)" )
 MS_COMMIT=$VOID_BRANCH # Void - MS_COMMIT doesn't seem to do much
-VOID_VERSION=$( jq -r '.voidVersion' "product.json" ) # Void added this
+VOID_VERSION=$( node -e "console.log(require('./product.json').voidVersion)" ) # Void added this
 
 if [[ -n "${VOID_RELEASE}" ]]; then # Void added VOID_RELEASE as optional to bump manually
   RELEASE_VERSION="${MS_TAG}${VOID_RELEASE}"
 else
-  VOID_RELEASE=$( jq -r '.voidRelease' "product.json" )
+  VOID_RELEASE=$( node -e "console.log(require('./product.json').voidRelease)" )
   RELEASE_VERSION="${MS_TAG}${VOID_RELEASE}"
 fi
 # Void - RELEASE_VERSION is later used as version (1.0.3+RELEASE_VERSION), so it MUST be a number or it will throw a semver error in void

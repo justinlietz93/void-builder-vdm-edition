@@ -5,6 +5,11 @@ set -ex
 
 . version.sh
 
+# Default to building the Rust CLI unless explicitly disabled.
+if [[ -z "${SKIP_CLI_BUILD}" ]]; then
+  export SKIP_CLI_BUILD="no"
+fi
+
 if [[ "${SHOULD_BUILD}" == "yes" ]]; then
   echo "MS_COMMIT=\"${MS_COMMIT}\""
 
@@ -34,7 +39,11 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
 
     find "../VSCode-darwin-${VSCODE_ARCH}" -print0 | xargs -0 touch -c
 
-    . ../build_cli.sh
+    if [[ "${SKIP_CLI_BUILD}" != "yes" ]]; then
+      . ../build_cli.sh
+    else
+      echo "Skipping Rust CLI build (SKIP_CLI_BUILD=yes)"
+    fi
 
     VSCODE_PLATFORM="darwin"
   elif [[ "${OS_NAME}" == "windows" ]]; then
@@ -52,7 +61,11 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
         SHOULD_BUILD_REH_WEB="no"
       fi
 
-      . ../build_cli.sh
+      if [[ "${SKIP_CLI_BUILD}" != "yes" ]]; then
+        . ../build_cli.sh
+      else
+        echo "Skipping Rust CLI build (SKIP_CLI_BUILD=yes)"
+      fi
     fi
 
     VSCODE_PLATFORM="win32"
@@ -63,7 +76,11 @@ if [[ "${SHOULD_BUILD}" == "yes" ]]; then
 
       find "../VSCode-linux-${VSCODE_ARCH}" -print0 | xargs -0 touch -c
 
-      . ../build_cli.sh
+      if [[ "${SKIP_CLI_BUILD}" != "yes" ]]; then
+        . ../build_cli.sh
+      else
+        echo "Skipping Rust CLI build (SKIP_CLI_BUILD=yes)"
+      fi
     fi
 
     VSCODE_PLATFORM="linux"

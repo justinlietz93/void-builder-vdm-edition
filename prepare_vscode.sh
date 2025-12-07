@@ -104,18 +104,43 @@ done
 mv .npmrc.bak .npmrc
 
 setpath() {
-  local jsonTmp
+  # Update a top-level JSON string property without requiring jq.
+  # Usage: setpath <baseNameWithoutExt> <key> <stringValue>
   { set +x; } 2>/dev/null
-  jsonTmp=$( jq --arg 'path' "${2}" --arg 'value' "${3}" 'setpath([$path]; $value)' "${1}.json" )
-  echo "${jsonTmp}" > "${1}.json"
+  local file="${1}.json"
+  local key="${2}"
+  local value="${3}"
+  node - "$file" "$key" "$value" << 'EOF'
+const fs = require('fs');
+const [file, key, value] = process.argv.slice(2);
+const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+json[key] = value;
+fs.writeFileSync(file, JSON.stringify(json, null, 2));
+EOF
   set -x
 }
 
 setpath_json() {
-  local jsonTmp
+  # Update a top-level JSON property with a JSON value (object/array/etc.) without jq.
+  # Usage: setpath_json <baseNameWithoutExt> <key> <jsonString>
   { set +x; } 2>/dev/null
-  jsonTmp=$( jq --arg 'path' "${2}" --argjson 'value' "${3}" 'setpath([$path]; $value)' "${1}.json" )
-  echo "${jsonTmp}" > "${1}.json"
+  local file="${1}.json"
+  local key="${2}"
+  local value="${3}"
+  node - "$file" "$key" "$value" << 'EOF'
+const fs = require('fs');
+const [file, key, raw] = process.argv.slice(2);
+const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+let parsed;
+try {
+  parsed = JSON.parse(raw);
+} catch {
+  // Fallback: treat as string if not valid JSON.
+  parsed = raw;
+}
+json[key] = parsed;
+fs.writeFileSync(file, JSON.stringify(json, null, 2));
+EOF
   set -x
 }
 
@@ -190,8 +215,31 @@ else
   # setpath "product" "win32arm64UserAppId" "{{F6C87466-BC82-4A8F-B0FF-18CA366BA4D8}"
 fi
 
-jsonTmp=$( jq -s '.[0] * .[1]' product.json ../product.json )
-echo "${jsonTmp}" > product.json && unset jsonTmp
+# Merge upstream product.json with our overlay ../product.json without jq.
+{ set +x; } 2>/dev/null
+node << 'EOF'
+const fs = require('fs');
+const base = JSON.parse(fs.readFileSync('product.json', 'utf8'));
+const overlay = JSON.parse(fs.readFileSync('../product.json', 'utf8'));
+
+function deepMerge(target, source) {
+  for (const [k, v] of Object.entries(source)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      if (!Object.prototype.hasOwnProperty.call(target, k) || typeof target[k] !== 'object') {
+        target[k] = {};
+      }
+      deepMerge(target[k], v);
+    } else {
+      target[k] = v;
+    }
+  }
+  return target;
+}
+
+const merged = deepMerge(base, overlay);
+fs.writeFileSync('product.json', JSON.stringify(merged, null, 2));
+EOF
+set -x
 
 cat product.json
 
